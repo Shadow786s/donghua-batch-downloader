@@ -375,9 +375,9 @@ def prepare_batch(request: BatchRequest):
         request.batch_size
     ):
 
-         batch_urls = cleaned_urls[
+        batch_urls = cleaned_urls[
              index:index + request.batch_size
-          ]
+        ]
 
         episode_items = []
 
