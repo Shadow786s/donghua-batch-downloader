@@ -1,7 +1,13 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, HttpUrl
 
 app = FastAPI(title="Donghua Batch Downloader")
+
+
+class BatchRequest(BaseModel):
+    urls: list[HttpUrl]
+    batch_size: int = 5
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -11,7 +17,8 @@ def home():
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0">
 
         <title>Donghua Batch Downloader</title>
 
@@ -30,7 +37,8 @@ def home():
                 box-sizing: border-box;
             }
 
-            select, button {
+            select,
+            button {
                 padding: 10px 14px;
                 margin-top: 12px;
             }
@@ -45,6 +53,10 @@ def home():
                 padding: 20px;
                 margin-top: 20px;
             }
+
+            #result {
+                white-space: pre-wrap;
+            }
         </style>
     </head>
 
@@ -53,45 +65,41 @@ def home():
         <h1>Donghua Batch Downloader</h1>
 
         <p>
-            Authorized episode-page links को नीचे एक-एक line में डालें।
+            Authorized episode-page links को एक-एक line में डालें।
         </p>
 
         <textarea
             id="urls"
-            placeholder="https://example.com/episode-1
-https://example.com/episode-2
-https://example.com/episode-3"
-        ></textarea>
+            placeholder="One episode URL per line"></textarea>
+
+        <br>
+
+        <label for="batch">
+            <strong>Batch size:</strong>
+        </label>
+
+        <select id="batch">
+            <option value="5">5 Episodes</option>
+            <option value="10">10 Episodes</option>
+            <option value="20">20 Episodes</option>
+        </select>
+
+        <br>
+
+        <button onclick="prepareBatch()">
+            Prepare Batch
+        </button>
 
         <div class="box">
-
-            <label for="batch">
-                <strong>Batch size:</strong>
-            </label>
-
-            <select id="batch">
-                <option value="5">5 Episodes</option>
-                <option value="10">10 Episodes</option>
-                <option value="20">20 Episodes</option>
-            </select>
-
-            <br>
-
-            <button onclick="prepareBatch()">
-                Prepare Batch
-            </button>
-
-        </div>
-
-        <div class="box">
-            <strong>Status:</strong>
-            <p id="status">Ready</p>
+            <strong>Result:</strong>
+            <p id="result">Ready</p>
         </div>
 
         <script>
-            function prepareBatch() {
+            async function prepareBatch() {
 
-                const text = document.getElementById("urls").value;
+                const text =
+                    document.getElementById("urls").value;
 
                 const urls = text
                     .split("\\n")
@@ -99,26 +107,81 @@ https://example.com/episode-3"
                     .filter(url => url.length > 0);
 
                 const batchSize =
-                    Number(document.getElementById("batch").value);
+                    Number(
+                        document.getElementById("batch").value
+                    );
 
                 if (urls.length === 0) {
-                    document.getElementById("status").innerText =
-                        "Please enter at least one episode URL.";
+                    document.getElementById("result").innerText =
+                        "Please enter at least one URL.";
 
                     return;
                 }
 
-                document.getElementById("status").innerText =
-                    "Found " + urls.length +
-                    " episode link(s). Batch size: " +
-                    batchSize +
-                    ". Processing system is ready.";
+                try {
+
+                    const response = await fetch("/prepare-batch", {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            urls: urls,
+                            batch_size: batchSize
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    document.getElementById("result").innerText =
+                        JSON.stringify(data, null, 2);
+
+                } catch (error) {
+
+                    document.getElementById("result").innerText =
+                        "Error: " + error;
+                }
             }
         </script>
 
     </body>
     </html>
     """
+
+
+@app.post("/prepare-batch")
+def prepare_batch(request: BatchRequest):
+
+    if request.batch_size not in [5, 10, 20]:
+        return {
+            "error": "Batch size must be 5, 10, or 20."
+        }
+
+    batches = []
+
+    for index in range(
+        0,
+        len(request.urls),
+        request.batch_size
+    ):
+        batch = request.urls[
+            index:index + request.batch_size
+        ]
+
+        batches.append({
+            "batch_number": len(batches) + 1,
+            "episode_count": len(batch),
+            "urls": [str(url) for url in batch]
+        })
+
+    return {
+        "status": "ready",
+        "total_episodes": len(request.urls),
+        "batch_size": request.batch_size,
+        "batches": batches
+    }
 
 
 @app.get("/health")
