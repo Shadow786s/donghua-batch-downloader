@@ -379,7 +379,7 @@ def prepare_batch(request: BatchRequest):
              index:index + request.batch_size
           ]
 
-          episode_items = []
+        episode_items = []
 
         for url in batch_urls:
 
