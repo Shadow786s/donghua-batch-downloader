@@ -547,3 +547,60 @@ def test_batch_download():
                 "filename=donghua_test_batch.zip"
         }
     )
+
+@app.get("/test-batch/{batch_number}")
+def test_batch(batch_number: int):
+
+    import io
+    import zipfile
+    from fastapi.responses import StreamingResponse
+
+    if batch_number < 1:
+        return {
+            "detail": "Invalid batch number."
+        }
+
+    start_episode = ((batch_number - 1) * 5) + 281
+
+    episodes = [
+        start_episode + i
+        for i in range(5)
+    ]
+
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(
+        zip_buffer,
+        "w",
+        zipfile.ZIP_DEFLATED
+    ) as zip_file:
+
+        for episode in episodes:
+
+            content = (
+                "TEST FILE\n"
+                f"Episode: {episode}\n"
+                "Quality: 1080p\n"
+                "Batch download test only.\n"
+            )
+
+            filename = (
+                f"Episode_{episode}_1080p.txt"
+            )
+
+            zip_file.writestr(
+                filename,
+                content
+            )
+
+    zip_buffer.seek(0)
+
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition":
+                f"attachment; "
+                f"filename=batch_{batch_number}.zip"
+        }
+    )
