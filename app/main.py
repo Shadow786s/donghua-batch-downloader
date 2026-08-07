@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, HttpUrl
+import re
 
 app = FastAPI(title="Donghua Batch Downloader")
 
@@ -9,6 +10,24 @@ class BatchRequest(BaseModel):
     urls: list[HttpUrl]
     batch_size: int = 5
 
+def detect_episode_number(url):
+    patterns = [
+        r'episode[-_ ]?(\d+)',
+        r'ep[-_ ]?(\d+)',
+        r'/(\d+)(?:/)?$'
+    ]
+
+    for pattern in patterns:
+        match = re.search(
+            pattern,
+            url,
+            re.IGNORECASE
+        )
+
+        if match:
+            return int(match.group(1))
+
+    return None
 
 def clean_urls(urls):
     seen = set()
@@ -244,18 +263,38 @@ Episode 5 URL"></textarea>
 
                         div.className = "batch";
 
-                        div.innerHTML =
-                            "<div class='batch-title'>" +
-                            "Batch " +
-                            batch.batch_number +
-                            " — " +
-                            batch.episode_count +
-                            " episode(s)" +
-                            "</div>" +
+                        let episodeText = "";
 
-                            "<div class='ready'>" +
-                            "Status: Ready" +
-                            "</div>";
+batch.episodes.forEach(function(episode) {
+
+    const number =
+        episode.episode_number !== null
+        ? "Episode " + episode.episode_number
+        : "Episode number not detected";
+
+    episodeText +=
+        "<div>" +
+        number +
+        "</div>";
+});
+
+
+div.innerHTML =
+    "<div class='batch-title'>" +
+    "Batch " +
+    batch.batch_number +
+    " — " +
+    batch.episode_count +
+    " episode(s)" +
+    "</div>" +
+
+    "<div class='ready'>" +
+    "Status: Ready" +
+    "</div>" +
+
+    "<div>" +
+    episodeText +
+    "</div>";
 
                         batchesBox.appendChild(div);
 
@@ -302,16 +341,28 @@ def prepare_batch(request: BatchRequest):
             index:index + request.batch_size
         ]
 
-        batches.append({
-            "batch_number":
-                len(batches) + 1,
+        episode_items = []
 
-            "episode_count":
-                len(batch_urls),
+for url in batch_urls:
 
-            "urls":
-                batch_urls
-        })
+    episode_number = detect_episode_number(url)
+
+    episode_items.append({
+        "url": url,
+        "episode_number": episode_number
+    })
+
+
+batches.append({
+    "batch_number":
+        len(batches) + 1,
+
+    "episode_count":
+        len(batch_urls),
+
+    "episodes":
+        episode_items
+})
 
     return {
         "status": "ready",
