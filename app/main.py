@@ -9,7 +9,8 @@ app = FastAPI(title="Donghua Batch Downloader")
 class BatchRequest(BaseModel):
     urls: list[HttpUrl]
     batch_size: int = 5
-
+    quality: str = "highest"
+    
 
 def clean_urls(urls):
     seen = set()
@@ -156,6 +157,19 @@ Episode 5 URL"></textarea>
                 <option value="20">20 Episodes</option>
             </select>
 
+            <br><br>
+
+            <label for="quality">
+                <strong>Video quality:</strong>
+            </label>
+
+            <select id="quality">
+                <option value="highest">Highest Available</option>
+                <option value="1080">1080p</option>
+                <option value="720">720p</option>
+                <option value="480">480p</option>
+            </select>
+
             <br>
 
             <button onclick="prepareBatch()">
@@ -201,6 +215,9 @@ Episode 5 URL"></textarea>
                         document.getElementById("batch").value
                     );
 
+                const quality =
+                    document.getElementById("quality").value;
+
                 const status =
                     document.getElementById("status");
 
@@ -234,7 +251,8 @@ Episode 5 URL"></textarea>
 
                             body: JSON.stringify({
                                 urls: urls,
-                                batch_size: batchSize
+                                batch_size: batchSize,
+                                quality: quality
                             })
                         }
                     );
@@ -334,6 +352,19 @@ def prepare_batch(request: BatchRequest):
                 "Batch size must be 5, 10, or 20."
         }
 
+    allowed_qualities = [
+        "highest",
+        "1080",
+        "720",
+        "480"
+    ]
+
+    if request.quality not in allowed_qualities:
+        return {
+            "detail":
+                "Invalid quality selection."
+        }
+
     cleaned_urls = clean_urls(request.urls)
 
     batches = []
@@ -344,11 +375,11 @@ def prepare_batch(request: BatchRequest):
         request.batch_size
     ):
 
-        batch_urls = cleaned_urls[
-            index:index + request.batch_size
-        ]
+         batch_urls = cleaned_urls[
+             index:index + request.batch_size
+          ]
 
-        episode_items = []
+          episode_items = []
 
         for url in batch_urls:
 
@@ -376,6 +407,8 @@ def prepare_batch(request: BatchRequest):
             len(cleaned_urls),
         "batch_size":
             request.batch_size,
+        "quality":
+            request.quality,
         "batches":
             batches
     }
