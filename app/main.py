@@ -183,6 +183,39 @@ def prepare_batch(request: BatchRequest):
         "batches": batches
     }
 
+@app.get("/check-page")
+async def check_page(url: str):
+
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=15
+        ) as client:
+
+            response = await client.get(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0"
+                }
+            )
+
+        return {
+            "status": "ok",
+            "http_status": response.status_code,
+            "final_url": str(response.url),
+            "content_type": response.headers.get(
+                "content-type"
+            )
+        }
+
+    except Exception as error:
+
+        return {
+            "status": "error",
+            "message": str(error)
+        }
 
 @app.get("/health")
 def health():
