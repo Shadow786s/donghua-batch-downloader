@@ -10,11 +10,29 @@ class BatchRequest(BaseModel):
     batch_size: int = 5
 
 
+def clean_urls(urls):
+    seen = set()
+    cleaned = []
+
+    for url in urls:
+        url = str(url).strip()
+
+        if not url:
+            continue
+
+        if url not in seen:
+            seen.add(url)
+            cleaned.append(url)
+
+    return cleaned
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     return """
     <!DOCTYPE html>
     <html lang="en">
+
     <head>
         <meta charset="UTF-8">
         <meta name="viewport"
@@ -26,36 +44,65 @@ def home():
             body {
                 font-family: Arial, sans-serif;
                 max-width: 900px;
-                margin: 40px auto;
+                margin: 30px auto;
                 padding: 20px;
+                background: #f7f7f7;
+            }
+
+            h1 {
+                margin-bottom: 8px;
             }
 
             textarea {
                 width: 100%;
                 min-height: 220px;
-                padding: 12px;
+                padding: 14px;
                 box-sizing: border-box;
+                border: 1px solid #ccc;
+                border-radius: 10px;
+                font-size: 15px;
             }
 
             select,
             button {
-                padding: 10px 14px;
+                padding: 11px 16px;
                 margin-top: 12px;
+                border-radius: 8px;
+                border: 1px solid #bbb;
             }
 
             button {
                 cursor: pointer;
+                font-weight: bold;
             }
 
             .box {
+                background: white;
                 border: 1px solid #ddd;
                 border-radius: 12px;
                 padding: 20px;
                 margin-top: 20px;
             }
 
-            #result {
-                white-space: pre-wrap;
+            .batch {
+                border: 1px solid #ddd;
+                border-radius: 10px;
+                padding: 14px;
+                margin-top: 12px;
+                background: #fafafa;
+            }
+
+            .batch-title {
+                font-weight: bold;
+                margin-bottom: 8px;
+            }
+
+            .ready {
+                font-weight: bold;
+            }
+
+            .error {
+                font-weight: bold;
             }
         </style>
     </head>
@@ -70,32 +117,54 @@ def home():
 
         <textarea
             id="urls"
-            placeholder="One episode URL per line"></textarea>
-
-        <br>
-
-        <label for="batch">
-            <strong>Batch size:</strong>
-        </label>
-
-        <select id="batch">
-            <option value="5">5 Episodes</option>
-            <option value="10">10 Episodes</option>
-            <option value="20">20 Episodes</option>
-        </select>
-
-        <br>
-
-        <button onclick="prepareBatch()">
-            Prepare Batch
-        </button>
+            placeholder="Episode 1 URL
+Episode 2 URL
+Episode 3 URL
+Episode 4 URL
+Episode 5 URL"></textarea>
 
         <div class="box">
-            <strong>Result:</strong>
-            <p id="result">Ready</p>
+
+            <label for="batch">
+                <strong>Batch size:</strong>
+            </label>
+
+            <select id="batch">
+                <option value="5">5 Episodes</option>
+                <option value="10">10 Episodes</option>
+                <option value="20">20 Episodes</option>
+            </select>
+
+            <br>
+
+            <button onclick="prepareBatch()">
+                Create Batch Queue
+            </button>
+
+        </div>
+
+        <div class="box">
+
+            <strong>Status</strong>
+
+            <p id="status">
+                Ready
+            </p>
+
+        </div>
+
+        <div class="box">
+
+            <strong>Batch Queue</strong>
+
+            <div id="batches">
+                No batches created yet.
+            </div>
+
         </div>
 
         <script>
+
             async function prepareBatch() {
 
                 const text =
@@ -111,42 +180,100 @@ def home():
                         document.getElementById("batch").value
                     );
 
+                const status =
+                    document.getElementById("status");
+
+                const batchesBox =
+                    document.getElementById("batches");
+
                 if (urls.length === 0) {
-                    document.getElementById("result").innerText =
+
+                    status.innerText =
                         "Please enter at least one URL.";
+
+                    batchesBox.innerHTML = "";
 
                     return;
                 }
 
+                status.innerText =
+                    "Creating batch queue...";
+
                 try {
 
-                    const response = await fetch("/prepare-batch", {
-                        method: "POST",
+                    const response = await fetch(
+                        "/prepare-batch",
+                        {
+                            method: "POST",
 
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
 
-                        body: JSON.stringify({
-                            urls: urls,
-                            batch_size: batchSize
-                        })
+                            body: JSON.stringify({
+                                urls: urls,
+                                batch_size: batchSize
+                            })
+                        }
+                    );
+
+                    const data =
+                        await response.json();
+
+                    if (!response.ok) {
+
+                        status.innerText =
+                            data.detail ||
+                            "Something went wrong.";
+
+                        return;
+                    }
+
+                    status.innerText =
+                        "Queue ready: " +
+                        data.total_episodes +
+                        " unique episode(s).";
+
+                    batchesBox.innerHTML = "";
+
+                    data.batches.forEach(batch => {
+
+                        const div =
+                            document.createElement("div");
+
+                        div.className = "batch";
+
+                        div.innerHTML =
+                            "<div class='batch-title'>" +
+                            "Batch " +
+                            batch.batch_number +
+                            " — " +
+                            batch.episode_count +
+                            " episode(s)" +
+                            "</div>" +
+
+                            "<div class='ready'>" +
+                            "Status: Ready" +
+                            "</div>";
+
+                        batchesBox.appendChild(div);
+
                     });
-
-                    const data = await response.json();
-
-                    document.getElementById("result").innerText =
-                        JSON.stringify(data, null, 2);
 
                 } catch (error) {
 
-                    document.getElementById("result").innerText =
-                        "Error: " + error;
+                    status.innerText =
+                        "Connection error: " +
+                        error;
+
                 }
             }
+
         </script>
 
     </body>
+
     </html>
     """
 
@@ -155,68 +282,53 @@ def home():
 def prepare_batch(request: BatchRequest):
 
     if request.batch_size not in [5, 10, 20]:
+
         return {
-            "error": "Batch size must be 5, 10, or 20."
+            "detail":
+                "Batch size must be 5, 10, or 20."
         }
+
+    cleaned_urls = clean_urls(request.urls)
 
     batches = []
 
     for index in range(
         0,
-        len(request.urls),
+        len(cleaned_urls),
         request.batch_size
     ):
-        batch = request.urls[
+
+        batch_urls = cleaned_urls[
             index:index + request.batch_size
         ]
 
         batches.append({
-            "batch_number": len(batches) + 1,
-            "episode_count": len(batch),
-            "urls": [str(url) for url in batch]
+            "batch_number":
+                len(batches) + 1,
+
+            "episode_count":
+                len(batch_urls),
+
+            "urls":
+                batch_urls
         })
 
     return {
         "status": "ready",
-        "total_episodes": len(request.urls),
-        "batch_size": request.batch_size,
-        "batches": batches
+
+        "total_episodes":
+            len(cleaned_urls),
+
+        "batch_size":
+            request.batch_size,
+
+        "batches":
+            batches
     }
 
-@app.get("/check-page")
-async def check_page(url: str):
-
-    import httpx
-
-    try:
-        async with httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=15
-        ) as client:
-
-            response = await client.get(
-                url,
-                headers={
-                    "User-Agent": "Mozilla/5.0"
-                }
-            )
-
-        return {
-            "status": "ok",
-            "http_status": response.status_code,
-            "final_url": str(response.url),
-            "content_type": response.headers.get(
-                "content-type"
-            )
-        }
-
-    except Exception as error:
-
-        return {
-            "status": "error",
-            "message": str(error)
-        }
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok"
+    }
