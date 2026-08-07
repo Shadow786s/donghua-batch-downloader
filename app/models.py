@@ -24,3 +24,17 @@ class EpisodeSource:
             self.qualities,
             key=lambda quality: quality.height
         )
+
+    def quality_summary(source: EpisodeSource):
+        selected = source.highest_quality()
+
+        if selected is None:
+            return {
+                "status": "no_quality_available"
+            }
+
+        return {
+            "status": "ready",
+            "selected_quality": selected.label,
+            "height": selected.height
+        }
