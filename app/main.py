@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+import io
+import zipfile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, HttpUrl
 import re
@@ -493,3 +495,55 @@ async def check_page(url: str):
             "status": "error",
             "message": str(error)
         }
+
+@app.get("/test-batch-download")
+def test_batch_download():
+
+    episodes = [
+        "Episode 281",
+        "Episode 282",
+        "Episode 283",
+        "Episode 284",
+        "Episode 285"
+    ]
+
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(
+        zip_buffer,
+        "w",
+        zipfile.ZIP_DEFLATED
+    ) as zip_file:
+
+        for episode in episodes:
+
+            content = (
+                f"TEST FILE\n"
+                f"{episode}\n"
+                f"Quality: 1080p\n"
+                f"This is only a batch-system test.\n"
+            )
+
+            filename = (
+                episode.replace(" ", "_")
+                + "_1080p.txt"
+            )
+
+            zip_file.writestr(
+                filename,
+                content
+            )
+
+    zip_buffer.seek(0)
+
+    from fastapi.responses import StreamingResponse
+
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition":
+                "attachment; "
+                "filename=donghua_test_batch.zip"
+        }
+    )
