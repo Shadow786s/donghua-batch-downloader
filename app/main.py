@@ -323,7 +323,22 @@ Episode 5 URL"></textarea>
                             "Status: Ready" +
                             "</div>" +
 
-                            episodeText;
+                            episodeText +
+                            
+                            "<br>" +
+
+                            "<a href='/test-batch/" +
+                            batch.batch_number +
+                            "' " +
+                            "download " +
+                            "style='display:inline-block;" +
+                            "padding:10px 16px;" +
+                            "background:#222;" +
+                            "color:white;" +
+                            "text-decoration:none;" +
+                            "border-radius:8px;'>" +
+                            "Download Batch ZIP" +
+                            "</a>";
 
                         batchesBox.appendChild(div);
 
