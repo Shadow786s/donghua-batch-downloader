@@ -10,24 +10,6 @@ class BatchRequest(BaseModel):
     urls: list[HttpUrl]
     batch_size: int = 5
 
-def detect_episode_number(url):
-    patterns = [
-        r'episode[-_ ]?(\d+)',
-        r'ep[-_ ]?(\d+)',
-        r'/(\d+)(?:/)?$'
-    ]
-
-    for pattern in patterns:
-        match = re.search(
-            pattern,
-            url,
-            re.IGNORECASE
-        )
-
-        if match:
-            return int(match.group(1))
-
-    return None
 
 def clean_urls(urls):
     seen = set()
@@ -44,6 +26,26 @@ def clean_urls(urls):
             cleaned.append(url)
 
     return cleaned
+
+
+def detect_episode_number(url):
+    patterns = [
+        r"episode[-_ ]?(\d+)",
+        r"ep[-_ ]?(\d+)",
+        r"/(\d+)(?:/)?$"
+    ]
+
+    for pattern in patterns:
+        match = re.search(
+            pattern,
+            url,
+            re.IGNORECASE
+        )
+
+        if match:
+            return int(match.group(1))
+
+    return None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -120,8 +122,8 @@ def home():
                 font-weight: bold;
             }
 
-            .error {
-                font-weight: bold;
+            .episode {
+                margin-top: 5px;
             }
         </style>
     </head>
@@ -256,7 +258,7 @@ Episode 5 URL"></textarea>
 
                     batchesBox.innerHTML = "";
 
-                    data.batches.forEach(batch => {
+                    data.batches.forEach(function(batch) {
 
                         const div =
                             document.createElement("div");
@@ -265,36 +267,43 @@ Episode 5 URL"></textarea>
 
                         let episodeText = "";
 
-batch.episodes.forEach(function(episode) {
+                        batch.episodes.forEach(
+                            function(episode) {
 
-    const number =
-        episode.episode_number !== null
-        ? "Episode " + episode.episode_number
-        : "Episode number not detected";
+                                let number;
 
-    episodeText +=
-        "<div>" +
-        number +
-        "</div>";
-});
+                                if (
+                                    episode.episode_number !== null
+                                ) {
+                                    number =
+                                        "Episode " +
+                                        episode.episode_number;
+                                } else {
+                                    number =
+                                        "Episode number not detected";
+                                }
 
+                                episodeText +=
+                                    "<div class='episode'>" +
+                                    number +
+                                    "</div>";
+                            }
+                        );
 
-div.innerHTML =
-    "<div class='batch-title'>" +
-    "Batch " +
-    batch.batch_number +
-    " — " +
-    batch.episode_count +
-    " episode(s)" +
-    "</div>" +
+                        div.innerHTML =
+                            "<div class='batch-title'>" +
+                            "Batch " +
+                            batch.batch_number +
+                            " — " +
+                            batch.episode_count +
+                            " episode(s)" +
+                            "</div>" +
 
-    "<div class='ready'>" +
-    "Status: Ready" +
-    "</div>" +
+                            "<div class='ready'>" +
+                            "Status: Ready" +
+                            "</div>" +
 
-    "<div>" +
-    episodeText +
-    "</div>";
+                            episodeText;
 
                         batchesBox.appendChild(div);
 
@@ -305,7 +314,6 @@ div.innerHTML =
                     status.innerText =
                         "Connection error: " +
                         error;
-
                 }
             }
 
@@ -321,7 +329,6 @@ div.innerHTML =
 def prepare_batch(request: BatchRequest):
 
     if request.batch_size not in [5, 10, 20]:
-
         return {
             "detail":
                 "Batch size must be 5, 10, or 20."
@@ -343,36 +350,32 @@ def prepare_batch(request: BatchRequest):
 
         episode_items = []
 
-for url in batch_urls:
+        for url in batch_urls:
 
-    episode_number = detect_episode_number(url)
+            episode_number = detect_episode_number(url)
 
-    episode_items.append({
-        "url": url,
-        "episode_number": episode_number
-    })
+            episode_items.append({
+                "url": url,
+                "episode_number": episode_number
+            })
 
+        batches.append({
+            "batch_number":
+                len(batches) + 1,
 
-batches.append({
-    "batch_number":
-        len(batches) + 1,
+            "episode_count":
+                len(batch_urls),
 
-    "episode_count":
-        len(batch_urls),
-
-    "episodes":
-        episode_items
-})
+            "episodes":
+                episode_items
+        })
 
     return {
         "status": "ready",
-
         "total_episodes":
             len(cleaned_urls),
-
         "batch_size":
             request.batch_size,
-
         "batches":
             batches
     }
@@ -383,3 +386,40 @@ def health():
     return {
         "status": "ok"
     }
+
+
+@app.get("/check-page")
+async def check_page(url: str):
+
+    import httpx
+
+    try:
+
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=15
+        ) as client:
+
+            response = await client.get(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0"
+                }
+            )
+
+        return {
+            "status": "ok",
+            "http_status": response.status_code,
+            "final_url": str(response.url),
+            "content_type":
+                response.headers.get(
+                    "content-type"
+                )
+        }
+
+    except Exception as error:
+
+        return {
+            "status": "error",
+            "message": str(error)
+        }
