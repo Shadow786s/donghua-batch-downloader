@@ -40,32 +40,32 @@ class EpisodeSource:
         }
 
     def demo_quality_selection():
-    source = EpisodeSource(
-        episode_number=281,
-        page_url="https://example.com/episode-281",
-        qualities=[
-            QualityOption(
-                label="480p",
-                height=480,
-                url="https://example.com/video-480"
-            ),
-            QualityOption(
-                label="720p",
-                height=720,
-                url="https://example.com/video-720"
-            ),
-            QualityOption(
-                label="1080p",
-                height=1080,
-                url="https://example.com/video-1080"
-            )
-        ]
-    )
+        source = EpisodeSource(
+            episode_number=281,
+            page_url="https://example.com/episode-281",
+            qualities=[
+                QualityOption(
+                    label="480p",
+                    height=480,
+                    url="https://example.com/video-480"
+                ),
+                QualityOption(
+                    label="720p",
+                    height=720,
+                    url="https://example.com/video-720"
+                ),
+                QualityOption(
+                    label="1080p",
+                    height=1080,
+                    url="https://example.com/video-1080"
+                )
+            ]
+        )
 
-    selected = source.highest_quality()
+        selected = source.highest_quality()
 
-    return {
-        "episode": source.episode_number,
-        "selected_quality": selected.label,
-        "height": selected.height
-    }
+        return {
+            "episode": source.episode_number,
+            "selected_quality": selected.label,
+            "height": selected.height
+        }
