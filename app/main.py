@@ -995,15 +995,9 @@ def test_batch_merge(batch_number: int, batch_size: int = 5):
 @app.get("/test-authorized-download")
 async def test_authorized_download(url: str):
 
-    import os
-    import shutil
-    import tempfile
     import re
+    from urllib.parse import urljoin
     import httpx
-
-    from fastapi.responses import FileResponse
-
-    temp_dir = tempfile.mkdtemp()
 
     try:
 
@@ -1024,98 +1018,120 @@ async def test_authorized_download(url: str):
                 or ""
             ).lower()
 
-            # Direct video response
+            # --------------------------------
+            # CASE 1: URL itself is a video
+            # --------------------------------
+
             if content_type.startswith("video/"):
 
-                filename = "downloaded_video.mp4"
+                return {
+                    "status": "direct_video",
+                    "video_url": str(response.url),
+                    "content_type": content_type
+                }
 
-                content_disposition = (
-                    response.headers.get(
-                        "content-disposition"
-                    )
-                    or ""
-                )
+            # --------------------------------
+            # CASE 2: URL is a webpage
+            # --------------------------------
 
-                match = re.search(
-                    r'filename="?([^"]+)"?',
-                    content_disposition,
-                    re.IGNORECASE
-                )
-
-                if match:
-                    filename = os.path.basename(
-                        match.group(1)
-                    )
-
-                output_file = os.path.join(
-                    temp_dir,
-                    filename
-                )
-
-                with open(
-                    output_file,
-                    "wb"
-                ) as file:
-
-                    file.write(
-                        response.content
-                    )
-
-                return FileResponse(
-                    output_file,
-                    media_type="video/mp4",
-                    filename=filename
-                )
-
-            # A webpage is not a video
             if "text/html" not in content_type:
 
                 return {
                     "status": "error",
                     "message":
-                        "URL did not return a video or HTML page.",
+                        "URL is neither a video nor an HTML page.",
                     "content_type": content_type
                 }
 
             html = response.text
 
-            # Look only for ordinary downloadable links.
+            # Find ordinary href links
             links = re.findall(
-                r'href=["\']([^"\']+)["\']',
+                r'href\s*=\s*["\']([^"\']+)["\']',
                 html,
                 re.IGNORECASE
             )
 
-            video_links = []
+            checked_links = []
+
+            # --------------------------------
+            # Check candidate links
+            # --------------------------------
 
             for link in links:
 
-                link_lower = link.lower()
+                candidate = urljoin(
+                    str(response.url),
+                    link
+                )
 
-                if (
-                    ".mp4" in link_lower
-                    or ".mkv" in link_lower
-                    or ".webm" in link_lower
-                    or ".mov" in link_lower
+                lower_candidate = candidate.lower()
+
+                if not any(
+                    extension in lower_candidate
+                    for extension in [
+                        ".mp4",
+                        ".mkv",
+                        ".webm",
+                        ".mov"
+                    ]
                 ):
-                    video_links.append(link)
+                    continue
 
-            if not video_links:
+                # Don't trust the filename.
+                # Verify the actual response.
+                try:
 
-                return {
-                    "status": "error",
-                    "message":
-                        "The page did not expose an ordinary "
-                        "downloadable video link.",
-                    "content_type": content_type,
-                    "final_url": str(response.url)
-                }
+                    check = await client.get(
+                        candidate,
+                        follow_redirects=True
+                    )
+
+                    candidate_type = (
+                        check.headers.get(
+                            "content-type"
+                        )
+                        or ""
+                    ).lower()
+
+                    checked_links.append({
+                        "url": candidate,
+                        "content_type": candidate_type,
+                        "http_status":
+                            check.status_code
+                    })
+
+                    if candidate_type.startswith(
+                        "video/"
+                    ):
+
+                        return {
+                            "status":
+                                "verified_video",
+                            "video_url":
+                                str(check.url),
+                            "content_type":
+                                candidate_type,
+                            "http_status":
+                                check.status_code
+                        }
+
+                except Exception:
+                    continue
+
+            # --------------------------------
+            # No verified video found
+            # --------------------------------
 
             return {
-                "status": "download_link_found",
-                "final_url": str(response.url),
-                "download_link":
-                    video_links[0]
+                "status": "no_verified_video",
+                "message":
+                    "The page contains no ordinary "
+                    "download link that returned video/*.",
+                "page_url":
+                    str(response.url),
+                "checked_links":
+                    checked_links[:10]
             }
 
     except Exception as error:
@@ -1124,9 +1140,3 @@ async def test_authorized_download(url: str):
             "status": "error",
             "message": str(error)
         }
-
-    finally:
-
-        # Do not remove the temporary directory here when
-        # FileResponse is being returned.
-        pass
