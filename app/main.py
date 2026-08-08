@@ -355,8 +355,7 @@ Episode 5 URL"></textarea>
                             
                             "<br>" +
 
-                            "<a href='/test-batch/" +
-                            batch.batch_number +
+                            "<a href='/test-batch-merge/' + batch.batch_number +
                             "' " +
                             "download " +
                             "style='display:inline-block;" +
@@ -365,7 +364,8 @@ Episode 5 URL"></textarea>
                             "color:white;" +
                             "text-decoration:none;" +
                             "border-radius:8px;'>" +
-                            "Download Batch ZIP" +
+                            "Download 
+                            "Merge & Download MP4" +
                             "</a>";
 
                         batchesBox.appendChild(div);
