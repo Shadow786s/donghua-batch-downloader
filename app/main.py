@@ -729,3 +729,128 @@ def test_ffmpeg():
             "status": "error",
             "message": str(error)
         }
+
+@app.get("/test-merge")
+def test_merge():
+
+    import os
+    import shutil
+    import tempfile
+    import subprocess
+
+    from fastapi.responses import StreamingResponse
+
+    temp_dir = tempfile.mkdtemp()
+
+    try:
+        video_files = []
+
+        # Create 5 short test videos
+        for i in range(1, 6):
+
+            output_file = os.path.join(
+                temp_dir,
+                f"episode_{i}.mp4"
+            )
+
+            command = [
+                "ffmpeg",
+                "-y",
+                "-f", "lavfi",
+                "-i",
+                "testsrc=size=640x360:rate=24",
+                "-t", "2",
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-an",
+                output_file
+            ]
+
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode != 0:
+                raise RuntimeError(
+                    result.stderr[-2000:]
+                )
+
+            video_files.append(output_file)
+
+        # Create concat list
+        concat_file = os.path.join(
+            temp_dir,
+            "concat.txt"
+        )
+
+        with open(
+            concat_file,
+            "w",
+            encoding="utf-8"
+        ) as file:
+
+            for video in video_files:
+                file.write(
+                    f"file '{video}'\n"
+                )
+
+        # Merge videos
+        merged_file = os.path.join(
+            temp_dir,
+            "merged_batch.mp4"
+        )
+
+        merge_command = [
+            "ffmpeg",
+            "-y",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", concat_file,
+            "-c", "copy",
+            merged_file
+        ]
+
+        result = subprocess.run(
+            merge_command,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                result.stderr[-2000:]
+            )
+
+        with open(
+            merged_file,
+            "rb"
+        ) as file:
+
+            video_data = file.read()
+
+        return StreamingResponse(
+            iter([video_data]),
+            media_type="video/mp4",
+            headers={
+                "Content-Disposition":
+                    "attachment; "
+                    "filename=merged_batch_test.mp4"
+            }
+        )
+
+    except Exception as error:
+
+        return {
+            "status": "error",
+            "message": str(error)
+        }
+
+    finally:
+        shutil.rmtree(
+            temp_dir,
+            ignore_errors=True
+        )
