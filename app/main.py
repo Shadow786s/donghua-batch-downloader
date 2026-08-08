@@ -526,23 +526,33 @@ async def check_page(url: str):
 
         async with httpx.AsyncClient(
             follow_redirects=True,
-            timeout=15
+            timeout=20,
+            headers={
+                "User-Agent": "Mozilla/5.0"
+            }
         ) as client:
 
-            response = await client.get(
-                url,
-                headers={
-                    "User-Agent": "Mozilla/5.0"
-                }
-            )
+            response = await client.get(url)
+
+        content_type = (
+            response.headers.get("content-type")
+            or ""
+        )
+
+        content_length = (
+            response.headers.get("content-length")
+        )
 
         return {
             "status": "ok",
             "http_status": response.status_code,
+            "requested_url": url,
             "final_url": str(response.url),
-            "content_type":
-                response.headers.get(
-                    "content-type"
+            "content_type": content_type,
+            "content_length": content_length,
+            "is_video":
+                content_type.lower().startswith(
+                    "video/"
                 )
         }
 
