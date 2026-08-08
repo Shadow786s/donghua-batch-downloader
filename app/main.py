@@ -12,6 +12,7 @@ class BatchRequest(BaseModel):
     urls: list[HttpUrl]
     batch_size: int = 5
     quality: str = "highest"
+    source_quality: str = "highest"
     
 
 def clean_urls(urls):
@@ -402,6 +403,12 @@ def prepare_batch(request: BatchRequest):
         "480"
     ]
 
+    if request.source_quality not in allowed_qualities:
+        return {
+            "detail":
+                "Invalid source quality selection."
+        }
+
     if request.quality not in allowed_qualities:
         return {
             "detail":
@@ -452,6 +459,8 @@ def prepare_batch(request: BatchRequest):
             request.batch_size,
         "quality":
             request.quality,
+        "source_quality":
+            request.source_quality,
         "batches":
             batches
     }
