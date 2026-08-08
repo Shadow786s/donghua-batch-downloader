@@ -43,3 +43,24 @@ class DemoSourceAdapter(SourceAdapter):
             page_url=page_url,
             qualities=qualities
         )
+
+
+class MediaFireSourceAdapter(SourceAdapter):
+
+    def get_episode_source(
+        self,
+        page_url: str,
+        episode_number: int | None = None
+    ) -> EpisodeSource:
+
+        return EpisodeSource(
+            episode_number=episode_number,
+            page_url=page_url,
+            qualities=[
+                QualityOption(
+                    label="Original",
+                    height=0,
+                    url=page_url
+                )
+            ]
+        )
