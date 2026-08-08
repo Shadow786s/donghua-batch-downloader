@@ -866,3 +866,95 @@ def test_media_module():
         "function": "merge_videos",
         "ready": callable(merge_videos)
     }
+
+@app.get("/test-batch-merge/{batch_number}")
+def test_batch_merge(batch_number: int):
+
+    import os
+    import shutil
+    import tempfile
+    import subprocess
+
+    from fastapi.responses import FileResponse
+    from media import merge_videos
+
+    if batch_number < 1:
+        return {
+            "status": "error",
+            "message": "Invalid batch number."
+        }
+
+    temp_dir = tempfile.mkdtemp()
+
+    try:
+        video_files = []
+
+        # 5 dummy episode videos
+        for i in range(1, 6):
+
+            episode_number = (
+                ((batch_number - 1) * 5) + 281 + i - 1
+            )
+
+            output_file = os.path.join(
+                temp_dir,
+                f"episode_{episode_number}.mp4"
+            )
+
+            command = [
+                "ffmpeg",
+                "-y",
+                "-f", "lavfi",
+                "-i",
+                "testsrc=size=640x360:rate=24",
+                "-t", "2",
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-an",
+                output_file
+            ]
+
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode != 0:
+                raise RuntimeError(
+                    result.stderr[-2000:]
+                )
+
+            video_files.append(output_file)
+
+        merged_file = os.path.join(
+            temp_dir,
+            f"batch_{batch_number}.mp4"
+        )
+
+        merge_videos(
+            video_files,
+            merged_file
+        )
+
+        # Keep the file available while FastAPI sends it.
+        response = FileResponse(
+            merged_file,
+            media_type="video/mp4",
+            filename=f"batch_{batch_number}.mp4"
+        )
+
+        return response
+
+    except Exception as error:
+
+        shutil.rmtree(
+            temp_dir,
+            ignore_errors=True
+        )
+
+        return {
+            "status": "error",
+            "message": str(error)
+        }
