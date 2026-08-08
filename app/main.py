@@ -996,8 +996,8 @@ def test_batch_merge(batch_number: int, batch_size: int = 5):
 async def test_authorized_download(url: str):
 
     import re
-    from urllib.parse import urljoin
     import httpx
+    from urllib.parse import urljoin
 
     try:
 
@@ -1007,10 +1007,11 @@ async def test_authorized_download(url: str):
 
         async with httpx.AsyncClient(
             follow_redirects=True,
-            timeout=60,
+            timeout=20,
             headers=headers
         ) as client:
 
+            # First request: only inspect the page
             response = await client.get(url)
 
             content_type = (
@@ -1019,7 +1020,7 @@ async def test_authorized_download(url: str):
             ).lower()
 
             # --------------------------------
-            # CASE 1: URL itself is a video
+            # Direct video URL
             # --------------------------------
 
             if content_type.startswith("video/"):
@@ -1027,11 +1028,12 @@ async def test_authorized_download(url: str):
                 return {
                     "status": "direct_video",
                     "video_url": str(response.url),
-                    "content_type": content_type
+                    "content_type": content_type,
+                    "http_status": response.status_code
                 }
 
             # --------------------------------
-            # CASE 2: URL is a webpage
+            # Must be an HTML page
             # --------------------------------
 
             if "text/html" not in content_type:
@@ -1039,24 +1041,21 @@ async def test_authorized_download(url: str):
                 return {
                     "status": "error",
                     "message":
-                        "URL is neither a video nor an HTML page.",
-                    "content_type": content_type
+                        "URL is not an HTML page or video.",
+                    "content_type": content_type,
+                    "http_status": response.status_code
                 }
 
             html = response.text
 
-            # Find ordinary href links
+            # Find normal href links
             links = re.findall(
                 r'href\s*=\s*["\']([^"\']+)["\']',
                 html,
                 re.IGNORECASE
             )
 
-            checked_links = []
-
-            # --------------------------------
-            # Check candidate links
-            # --------------------------------
+            candidates = []
 
             for link in links:
 
@@ -1067,7 +1066,7 @@ async def test_authorized_download(url: str):
 
                 lower_candidate = candidate.lower()
 
-                if not any(
+                if any(
                     extension in lower_candidate
                     for extension in [
                         ".mp4",
@@ -1076,19 +1075,27 @@ async def test_authorized_download(url: str):
                         ".mov"
                     ]
                 ):
-                    continue
 
-                # Don't trust the filename.
-                # Verify the actual response.
+                    if candidate not in candidates:
+                        candidates.append(candidate)
+
+            # --------------------------------
+            # Verify without downloading video
+            # --------------------------------
+
+            checked_links = []
+
+            for candidate in candidates[:10]:
+
                 try:
 
-                    check = await client.get(
+                    check_headers = await client.head(
                         candidate,
                         follow_redirects=True
                     )
 
                     candidate_type = (
-                        check.headers.get(
+                        check_headers.headers.get(
                             "content-type"
                         )
                         or ""
@@ -1098,22 +1105,19 @@ async def test_authorized_download(url: str):
                         "url": candidate,
                         "content_type": candidate_type,
                         "http_status":
-                            check.status_code
+                            check_headers.status_code
                     })
 
-                    if candidate_type.startswith(
-                        "video/"
-                    ):
+                    if candidate_type.startswith("video/"):
 
                         return {
-                            "status":
-                                "verified_video",
+                            "status": "verified_video",
                             "video_url":
-                                str(check.url),
+                                str(check_headers.url),
                             "content_type":
                                 candidate_type,
                             "http_status":
-                                check.status_code
+                                check_headers.status_code
                         }
 
                 except Exception:
@@ -1126,12 +1130,12 @@ async def test_authorized_download(url: str):
             return {
                 "status": "no_verified_video",
                 "message":
-                    "The page contains no ordinary "
-                    "download link that returned video/*.",
+                    "No ordinary downloadable video "
+                    "link was verified.",
                 "page_url":
                     str(response.url),
                 "checked_links":
-                    checked_links[:10]
+                    checked_links
             }
 
     except Exception as error:
