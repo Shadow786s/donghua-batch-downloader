@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 import io
 import zipfile
+import subprocess
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, HttpUrl
 import re
@@ -687,3 +688,44 @@ def test_source():
             else None
         )
     }
+
+@app.get("/test-ffmpeg")
+def test_ffmpeg():
+
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-version"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            return {
+                "status": "error",
+                "message": result.stderr
+            }
+
+        first_line = (
+            result.stdout
+            .splitlines()[0]
+            if result.stdout
+            else "FFmpeg detected"
+        )
+
+        return {
+            "status": "ok",
+            "ffmpeg": first_line
+        }
+
+    except FileNotFoundError:
+        return {
+            "status": "not_installed",
+            "message": "FFmpeg is not installed."
+        }
+
+    except Exception as error:
+        return {
+            "status": "error",
+            "message": str(error)
+        }
