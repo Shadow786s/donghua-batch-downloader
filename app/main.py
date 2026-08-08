@@ -340,7 +340,9 @@ Episode 5 URL"></textarea>
 
                         const downloadLink =
                              "/test-batch-merge/" +
-                             batch.batch_number;
+                             batch.batch_number +
+                             "?batch_size=" +
+                             batch.episode_count;
 
                         div.innerHTML =
                             "<div class='batch-title'>" +
