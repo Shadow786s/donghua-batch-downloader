@@ -619,3 +619,36 @@ def test_batch(batch_number: int):
                 f"filename=batch_{batch_number}.zip"
         }
     )
+
+@app.get("/test-source")
+def test_source():
+
+    from sources import DemoSourceAdapter
+
+    adapter = DemoSourceAdapter()
+
+    source = adapter.get_episode_source(
+        page_url="https://example.com/perfect-world-episode-281",
+        episode_number=281
+    )
+
+    selected = source.highest_quality()
+
+    return {
+        "episode": source.episode_number,
+        "page_url": source.page_url,
+        "available_qualities": [
+            quality.label
+            for quality in source.qualities
+        ],
+        "selected_quality": (
+            selected.label
+            if selected
+            else None
+        ),
+        "selected_height": (
+            selected.height
+            if selected
+            else None
+        )
+    }
