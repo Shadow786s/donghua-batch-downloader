@@ -242,6 +242,9 @@ Episode 5 URL"></textarea>
                 const quality =
                     document.getElementById("quality").value;
 
+                const sourceQuality =
+                    document.getElementById("source-quality").value;
+
                 const status =
                     document.getElementById("status");
 
@@ -276,7 +279,8 @@ Episode 5 URL"></textarea>
                             body: JSON.stringify({
                                 urls: urls,
                                 batch_size: batchSize,
-                                quality: quality
+                                quality: quality,
+                                source_quality: sourceQuality
                             })
                         }
                     );
