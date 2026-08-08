@@ -872,7 +872,7 @@ def test_media_module():
     }
 
 @app.get("/test-batch-merge/{batch_number}")
-def test_batch_merge(batch_number: int):
+def test_batch_merge(batch_number: int, batch_size: int = 5):
 
     import os
     import shutil
@@ -882,22 +882,36 @@ def test_batch_merge(batch_number: int):
     from fastapi.responses import FileResponse
     from media import merge_videos
 
+    allowed_batch_sizes = [5, 10, 20]
+
     if batch_number < 1:
         return {
             "status": "error",
             "message": "Invalid batch number."
         }
 
+    if batch_size not in allowed_batch_sizes:
+        return {
+            "status": "error",
+            "message":
+                "Batch size must be 5, 10, or 20."
+        }
+
     temp_dir = tempfile.mkdtemp()
 
     try:
+
         video_files = []
 
-        # 5 dummy episode videos
-        for i in range(1, 6):
+        start_episode = (
+            ((batch_number - 1) * batch_size)
+            + 281
+        )
+
+        for i in range(batch_size):
 
             episode_number = (
-                ((batch_number - 1) * 5) + 281 + i - 1
+                start_episode + i
             )
 
             output_file = os.path.join(
@@ -930,11 +944,13 @@ def test_batch_merge(batch_number: int):
                     result.stderr[-2000:]
                 )
 
-            video_files.append(output_file)
+            video_files.append(
+                output_file
+            )
 
         merged_file = os.path.join(
             temp_dir,
-            f"batch_{batch_number}.mp4"
+            f"batch_{batch_number}_{batch_size}.mp4"
         )
 
         merge_videos(
@@ -942,14 +958,15 @@ def test_batch_merge(batch_number: int):
             merged_file
         )
 
-        # Keep the file available while FastAPI sends it.
-        response = FileResponse(
+        return FileResponse(
             merged_file,
             media_type="video/mp4",
-            filename=f"batch_{batch_number}.mp4"
+            filename=(
+                f"batch_{batch_number}_"
+                f"{batch_size}_episodes.mp4"
+            ),
+            background=None
         )
-
-        return response
 
     except Exception as error:
 
