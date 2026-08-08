@@ -1144,3 +1144,208 @@ async def test_authorized_download(url: str):
             "status": "error",
             "message": str(error)
         }
+
+@app.get("/test-real-download")
+async def test_real_download(url: str):
+
+    import os
+    import re
+    import shutil
+    import tempfile
+    import httpx
+
+    from urllib.parse import urljoin
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+
+    temp_dir = tempfile.mkdtemp()
+
+    try:
+
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+
+        # --------------------------------
+        # STEP 1: Open the supplied page
+        # --------------------------------
+
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=30,
+            headers=headers
+        ) as client:
+
+            response = await client.get(url)
+
+            content_type = (
+                response.headers.get(
+                    "content-type"
+                ) or ""
+            ).lower()
+
+            # --------------------------------
+            # Direct video URL
+            # --------------------------------
+
+            if content_type.startswith("video/"):
+
+                video_url = str(response.url)
+
+            else:
+
+                if "text/html" not in content_type:
+
+                    return {
+                        "status": "error",
+                        "message":
+                            "URL is not a video or HTML page.",
+                        "content_type":
+                            content_type
+                    }
+
+                html = response.text
+
+                # Find MP4 links
+                links = re.findall(
+                    r'href\s*=\s*["\']([^"\']+)["\']',
+                    html,
+                    re.IGNORECASE
+                )
+
+                video_url = None
+
+                for link in links:
+
+                    candidate = urljoin(
+                        str(response.url),
+                        link
+                    )
+
+                    lower_candidate = (
+                        candidate.lower()
+                    )
+
+                    if not any(
+                        extension in lower_candidate
+                        for extension in [
+                            ".mp4",
+                            ".mkv",
+                            ".webm",
+                            ".mov"
+                        ]
+                    ):
+                        continue
+
+                    try:
+
+                        check = await client.head(
+                            candidate,
+                            follow_redirects=True
+                        )
+
+                        candidate_type = (
+                            check.headers.get(
+                                "content-type"
+                            ) or ""
+                        ).lower()
+
+                        if candidate_type.startswith(
+                            "video/"
+                        ):
+
+                            video_url = str(
+                                check.url
+                            )
+
+                            break
+
+                    except Exception:
+                        continue
+
+            # --------------------------------
+            # No video found
+            # --------------------------------
+
+            if not video_url:
+
+                return {
+                    "status":
+                        "no_verified_video",
+                    "message":
+                        "No verified MP4 video was found."
+                }
+
+            # --------------------------------
+            # STEP 2: Download video
+            # --------------------------------
+
+            output_file = os.path.join(
+                temp_dir,
+                "episode_test.mp4"
+            )
+
+            async with client.stream(
+                "GET",
+                video_url,
+                follow_redirects=True
+            ) as video_response:
+
+                video_type = (
+                    video_response.headers.get(
+                        "content-type"
+                    ) or ""
+                ).lower()
+
+                if not video_type.startswith(
+                    "video/"
+                ):
+
+                    return {
+                        "status": "error",
+                        "message":
+                            "Resolved URL did not return "
+                            "a video file.",
+                        "content_type":
+                            video_type
+                    }
+
+                with open(
+                    output_file,
+                    "wb"
+                ) as file:
+
+                    async for chunk in (
+                        video_response.aiter_bytes(
+                            chunk_size=1024 * 1024
+                        )
+                    ):
+
+                        file.write(chunk)
+
+            # --------------------------------
+            # STEP 3: Return downloaded MP4
+            # --------------------------------
+
+            return FileResponse(
+                output_file,
+                media_type="video/mp4",
+                filename="episode_test.mp4",
+                background=BackgroundTask(
+                    shutil.rmtree,
+                    temp_dir,
+                    ignore_errors=True
+                )
+            )
+
+    except Exception as error:
+
+        shutil.rmtree(
+            temp_dir,
+            ignore_errors=True
+        )
+
+        return {
+            "status": "error",
+            "message": str(error)
+        }
