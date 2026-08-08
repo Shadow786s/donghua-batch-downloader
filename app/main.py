@@ -991,3 +991,142 @@ def test_batch_merge(batch_number: int, batch_size: int = 5):
             "status": "error",
             "message": str(error)
         }
+
+@app.get("/test-authorized-download")
+async def test_authorized_download(url: str):
+
+    import os
+    import shutil
+    import tempfile
+    import re
+    import httpx
+
+    from fastapi.responses import FileResponse
+
+    temp_dir = tempfile.mkdtemp()
+
+    try:
+
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=60,
+            headers=headers
+        ) as client:
+
+            response = await client.get(url)
+
+            content_type = (
+                response.headers.get("content-type")
+                or ""
+            ).lower()
+
+            # Direct video response
+            if content_type.startswith("video/"):
+
+                filename = "downloaded_video.mp4"
+
+                content_disposition = (
+                    response.headers.get(
+                        "content-disposition"
+                    )
+                    or ""
+                )
+
+                match = re.search(
+                    r'filename="?([^"]+)"?',
+                    content_disposition,
+                    re.IGNORECASE
+                )
+
+                if match:
+                    filename = os.path.basename(
+                        match.group(1)
+                    )
+
+                output_file = os.path.join(
+                    temp_dir,
+                    filename
+                )
+
+                with open(
+                    output_file,
+                    "wb"
+                ) as file:
+
+                    file.write(
+                        response.content
+                    )
+
+                return FileResponse(
+                    output_file,
+                    media_type="video/mp4",
+                    filename=filename
+                )
+
+            # A webpage is not a video
+            if "text/html" not in content_type:
+
+                return {
+                    "status": "error",
+                    "message":
+                        "URL did not return a video or HTML page.",
+                    "content_type": content_type
+                }
+
+            html = response.text
+
+            # Look only for ordinary downloadable links.
+            links = re.findall(
+                r'href=["\']([^"\']+)["\']',
+                html,
+                re.IGNORECASE
+            )
+
+            video_links = []
+
+            for link in links:
+
+                link_lower = link.lower()
+
+                if (
+                    ".mp4" in link_lower
+                    or ".mkv" in link_lower
+                    or ".webm" in link_lower
+                    or ".mov" in link_lower
+                ):
+                    video_links.append(link)
+
+            if not video_links:
+
+                return {
+                    "status": "error",
+                    "message":
+                        "The page did not expose an ordinary "
+                        "downloadable video link.",
+                    "content_type": content_type,
+                    "final_url": str(response.url)
+                }
+
+            return {
+                "status": "download_link_found",
+                "final_url": str(response.url),
+                "download_link":
+                    video_links[0]
+            }
+
+    except Exception as error:
+
+        return {
+            "status": "error",
+            "message": str(error)
+        }
+
+    finally:
+
+        # Do not remove the temporary directory here when
+        # FileResponse is being returned.
+        pass
