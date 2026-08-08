@@ -308,73 +308,72 @@ Episode 5 URL"></textarea>
 
                     data.batches.forEach(function(batch) {
 
-    const div =
-        document.createElement("div");
+                        const div =
+                            document.createElement("div");
 
-    div.className = "batch";
+                        div.className = "batch";
 
-    let episodeText = "";
+                        let episodeText = "";
 
-    batch.episodes.forEach(
-        function(episode) {
+                        batch.episodes.forEach(
+                            function(episode) {
 
-            let number;
+                                let number;
 
-            if (
-                episode.episode_number !== null
-            ) {
-                number =
-                    "Episode " +
-                    episode.episode_number;
-            } else {
-                number =
-                    "Episode number not detected";
-            }
+                                if (
+                                    episode.episode_number !== null
+                                ) {
+                                    number =
+                                        "Episode " +
+                                        episode.episode_number;
+                                } else {
+                                    number =
+                                        "Episode number not detected";
+                                }
 
-            episodeText +=
-                "<div class='episode'>" +
-                number +
-                "</div>";
-        }
-    );
+                                episodeText +=
+                                    "<div class='episode'>" +
+                                    number +
+                                    "</div>";
+                            }
+                        );
 
-    const downloadLink =
-        "/test-batch-merge/" +
-        batch.batch_number;
+                        const downloadLink =
+                             "/test-batch-merge/" +
+                             batch.batch_number;
 
-    div.innerHTML =
-        "<div class='batch-title'>" +
-        "Batch " +
-        batch.batch_number +
-        " — " +
-        batch.episode_count +
-        " episode(s)" +
-        "</div>" +
+                        div.innerHTML =
+                            "<div class='batch-title'>" +
+                            "Batch " +
+                            batch.batch_number +
+                            " — " +
+                            batch.episode_count +
+                            " episode(s)" +
+                            "</div>" +
 
-        "<div class='ready'>" +
-        "Status: Ready" +
-        "</div>" +
+                            "<div class='ready'>" +
+                            "Status: Ready" +
+                            "</div>" +
 
-        episodeText +
+                            episodeText +
 
-        "<br>" +
+                            "<br>" +
 
-        "<a href='" +
-        downloadLink +
-        "' " +
-        "download " +
-        "style='display:inline-block;" +
-        "padding:10px 16px;" +
-        "background:#222;" +
-        "color:white;" +
-        "text-decoration:none;" +
-        "border-radius:8px;'>" +
-        "Merge & Download MP4" +
-        "</a>";
+                            "<a href='" +
+                            downloadLink +
+                            "' " +
+                            "download " +
+                            "style='display:inline-block;" +
+                            "padding:10px 16px;" +
+                            "background:#222;" +
+                            "color:white;" +
+                            "text-decoration:none;" +
+                            "border-radius:8px;'>" +
+                            "Merge & Download MP4" +
+                            "</a>";
 
-    batchesBox.appendChild(div);
+                        batchesBox.appendChild(div);
 
-});
                     });
 
                 } catch (error) {
