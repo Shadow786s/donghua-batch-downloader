@@ -854,3 +854,15 @@ def test_merge():
             temp_dir,
             ignore_errors=True
         )
+
+@app.get("/test-media-module")
+def test_media_module():
+
+    from media import merge_videos
+
+    return {
+        "status": "ok",
+        "module": "media.py",
+        "function": "merge_videos",
+        "ready": callable(merge_videos)
+    }
