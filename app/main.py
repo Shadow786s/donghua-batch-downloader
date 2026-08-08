@@ -149,6 +149,28 @@ Episode 5 URL"></textarea>
 
         <div class="box">
 
+            <strong>Source Information</strong>
+
+            <p>
+                अगर आपके पास किसी authorized/downloadable source
+                की information है, तो यहाँ दर्ज करें।
+            </p>
+
+            <label for="source-quality">
+                Quality:
+            </label>
+
+            <select id="source-quality">
+                <option value="highest">Highest Available</option>
+                <option value="1080">1080p</option>
+                <option value="720">720p</option>
+                <option value="480">480p</option>
+            </select>
+
+        </div>
+
+        <div class="box">
+
             <label for="batch">
                 <strong>Batch size:</strong>
             </label>
